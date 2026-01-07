@@ -20,9 +20,10 @@ export const newName = (prefix: string): string => {
   }
   return `${prefix}-${nowS()}-${
     // 50 - 1 (-) - 14 (timestap yyyymmddhhmmss) - 1 (-) = 34
-    Array.from({ length: 34 - prefix.length }, () =>
-      Math.floor(Math.random() * 36).toString(36)).join("")
-  }`;
+    Array.from(
+      { length: 34 - prefix.length },
+      () => Math.floor(Math.random() * 36).toString(36),
+    ).join("")}`;
 };
 
 export type Inputs = {
