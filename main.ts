@@ -20,10 +20,10 @@ export const newName = (prefix: string): string => {
   }
   return `${prefix}${nowS()}-${
     // 50 - 14 (timestap yyyymmddhhmmss) - 1 (-) = 35
-    Array.from(
-      { length: 35 - prefix.length },
-      () => Math.floor(Math.random() * 36).toString(36),
-    ).join("")}`;
+    Array.from({ length: 35 - prefix.length }, () =>
+      Math.floor(Math.random() * 36).toString(36),
+    ).join("")
+  }`;
 };
 
 export type Inputs = {
@@ -36,9 +36,7 @@ export type Inputs = {
   privateKey?: string;
 };
 
-export const create = async (
-  inputs: Inputs,
-) => {
+export const create = async (inputs: Inputs) => {
   let octokit: ReturnType<typeof github.getOctokit> | undefined;
   let token: githubAppToken.Token | undefined;
   if (inputs.octokit) {
@@ -58,6 +56,7 @@ export const create = async (
         issues: "write",
       },
     });
+    core.setSecret(token.token);
     octokit = github.getOctokit(token.token);
   }
   try {
