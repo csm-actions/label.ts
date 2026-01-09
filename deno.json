@@ -1,14 +1,10 @@
 {
   "name": "@csm-actions/label",
   "tasks": {},
-  "version": "0.0.4",
+  "version": "0.0.5",
   "exports": "./main.ts",
   "publish": {
-    "include": [
-      "LICENSE",
-      "README.md",
-      "main.ts"
-    ]
+    "include": ["LICENSE", "README.md", "main.ts"]
   },
   "imports": {
     "@actions/core": "npm:@actions/core@^1.11.1",
