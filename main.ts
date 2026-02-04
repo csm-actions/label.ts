@@ -20,10 +20,10 @@ export const newName = (prefix: string): string => {
   }
   return `${prefix}${nowS()}-${
     // 50 - 14 (timestap yyyymmddhhmmss) - 1 (-) = 35
-    Array.from(
-      { length: 35 - prefix.length },
-      () => Math.floor(Math.random() * 36).toString(36),
-    ).join("")}`;
+    Array.from({ length: 35 - prefix.length }, () =>
+      Math.floor(Math.random() * 36).toString(36),
+    ).join("")
+  }`;
 };
 
 export type Inputs = {
@@ -36,46 +36,52 @@ export type Inputs = {
   privateKey?: string;
 };
 
+const tokens: githubAppToken.Token[] = [];
+
 export const create = async (inputs: Inputs) => {
-  let octokit: ReturnType<typeof github.getOctokit> | undefined;
-  let token: githubAppToken.Token | undefined;
-  if (inputs.octokit) {
-    octokit = inputs.octokit;
-  } else {
-    if (!inputs.appId || !inputs.privateKey) {
-      throw new Error(
-        "Either octokit or appId and privateKey must be provided",
-      );
-    }
-    token = await githubAppToken.create({
-      appId: inputs.appId,
-      privateKey: inputs.privateKey,
-      owner: inputs.owner,
-      repositories: [inputs.repo],
-      permissions: {
-        issues: "write",
-      },
-    });
-    core.setSecret(token.token);
-    octokit = github.getOctokit(token.token);
-  }
   try {
-    await octokit.rest.issues.createLabel({
-      owner: inputs.owner,
-      repo: inputs.repo,
-      name: inputs.name,
-      description: inputs.description,
-    });
-  } catch (error) {
-    if (!token) {
-      return;
+    await createLabel(inputs);
+  } finally {
+    for (const token of tokens) {
+      if (githubAppToken.hasExpired(token.expiresAt)) {
+        core.info("skip revoking GitHub App token as it has already expired");
+        continue;
+      }
+      core.info("revoking GitHub App token");
+      await githubAppToken.revoke(token.token);
     }
-    if (githubAppToken.hasExpired(token.expiresAt)) {
-      core.info("GitHub App token has already expired");
-      return;
-    }
-    core.info("Revoking GitHub App token");
-    await githubAppToken.revoke(token.token);
-    throw error;
   }
+};
+
+const createLabel = async (inputs: Inputs) => {
+  const octokit = await getOctokit(inputs);
+  await octokit.rest.issues.createLabel({
+    owner: inputs.owner,
+    repo: inputs.repo,
+    name: inputs.name,
+    description: inputs.description,
+  });
+};
+
+const getOctokit = async (
+  inputs: Inputs,
+): Promise<ReturnType<typeof github.getOctokit>> => {
+  if (inputs.octokit) {
+    return inputs.octokit;
+  }
+  if (!inputs.appId || !inputs.privateKey) {
+    throw new Error("Either octokit or appId and privateKey must be provided");
+  }
+  const token = await githubAppToken.create({
+    appId: inputs.appId,
+    privateKey: inputs.privateKey,
+    owner: inputs.owner,
+    repositories: [inputs.repo],
+    permissions: {
+      issues: "write",
+    },
+  });
+  core.setSecret(token.token);
+  tokens.push(token);
+  return github.getOctokit(token.token);
 };
