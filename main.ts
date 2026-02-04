@@ -38,7 +38,7 @@ export type Inputs = {
 
 const tokens: githubAppToken.Token[] = [];
 
-export const create = async (inputs: Inputs) => {
+export const create = async (inputs: Inputs): Promise<void> => {
   try {
     await createLabel(inputs);
   } finally {
