@@ -1,7 +1,7 @@
 {
   "name": "@csm-actions/label",
   "tasks": {},
-  "version": "0.0.9",
+  "version": "0.1.0",
   "exports": "./main.ts",
   "publish": {
     "include": ["LICENSE", "README.md", "main.ts"]
@@ -9,6 +9,6 @@
   "imports": {
     "@actions/core": "npm:@actions/core@^3.0.1",
     "@actions/github": "npm:@actions/github@^9.1.1",
-    "@suzuki-shunsuke/github-app-token": "jsr:@suzuki-shunsuke/github-app-token@^0.1.0"
+    "@suzuki-shunsuke/github-app-token": "jsr:@suzuki-shunsuke/github-app-token@^0.2.0"
   }
 }
