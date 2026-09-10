@@ -34,6 +34,13 @@ export type Inputs = {
   octokit?: ReturnType<typeof github.getOctokit>;
   appId?: string;
   privateKey?: string;
+  /**
+   * A callback signing a JSON Web Token.
+   *
+   * It's passed instead of privateKey when a GitHub App private key is stored
+   * in a KMS or a HSM and can't be exported.
+   */
+  createJwt?: githubAppToken.CreateJwt;
 };
 
 const tokens: githubAppToken.Token[] = [];
@@ -69,19 +76,29 @@ const getOctokit = async (
   if (inputs.octokit) {
     return inputs.octokit;
   }
-  if (!inputs.appId || !inputs.privateKey) {
-    throw new Error("Either octokit or appId and privateKey must be provided");
+  const token = await createToken(inputs);
+  core.setSecret(token.token);
+  tokens.push(token);
+  return github.getOctokit(token.token);
+};
+
+const createToken = (inputs: Inputs): Promise<githubAppToken.Token> => {
+  if (!inputs.appId) {
+    throw new Error("Either octokit or appId must be provided");
   }
-  const token = await githubAppToken.create({
+  const common: githubAppToken.CommonInputs = {
     appId: inputs.appId,
-    privateKey: inputs.privateKey,
     owner: inputs.owner,
     repositories: [inputs.repo],
     permissions: {
       issues: "write",
     },
-  });
-  core.setSecret(token.token);
-  tokens.push(token);
-  return github.getOctokit(token.token);
+  };
+  if (inputs.createJwt) {
+    return githubAppToken.create({ ...common, createJwt: inputs.createJwt });
+  }
+  if (inputs.privateKey) {
+    return githubAppToken.create({ ...common, privateKey: inputs.privateKey });
+  }
+  throw new Error("Either privateKey or createJwt must be provided");
 };
