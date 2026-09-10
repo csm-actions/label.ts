@@ -31,16 +31,17 @@ export type Inputs = {
   repo: string;
   name: string;
   description: string;
+  /** An Octokit client authenticated with an installation access token. */
   octokit?: ReturnType<typeof github.getOctokit>;
-  appId?: string;
-  privateKey?: string;
   /**
-   * A callback signing a JSON Web Token.
+   * An Octokit client authenticated as a GitHub App.
    *
-   * It's passed instead of privateKey when a GitHub App private key is stored
-   * in a KMS or a HSM and can't be exported.
+   * It's used to create an installation access token, which is revoked once
+   * the label is created.
+   * Build it with @octokit/auth-app, passing either a private key or a
+   * createJwt callback when the key is stored in a KMS or a HSM.
    */
-  createJwt?: githubAppToken.CreateJwt;
+  appOctokit?: githubAppToken.Client;
 };
 
 const tokens: githubAppToken.Token[] = [];
@@ -55,7 +56,9 @@ export const create = async (inputs: Inputs): Promise<void> => {
         continue;
       }
       core.info("revoking GitHub App token");
-      await githubAppToken.revoke(token.token);
+      await githubAppToken.revoke(token.token, {
+        baseUrl: github.context.apiUrl,
+      });
     }
   }
 };
@@ -76,29 +79,18 @@ const getOctokit = async (
   if (inputs.octokit) {
     return inputs.octokit;
   }
-  const token = await createToken(inputs);
-  core.setSecret(token.token);
-  tokens.push(token);
-  return github.getOctokit(token.token);
-};
-
-const createToken = (inputs: Inputs): Promise<githubAppToken.Token> => {
-  if (!inputs.appId) {
-    throw new Error("Either octokit or appId must be provided");
+  if (!inputs.appOctokit) {
+    throw new Error("Either octokit or appOctokit must be provided");
   }
-  const common: githubAppToken.CommonInputs = {
-    appId: inputs.appId,
+  const token = await githubAppToken.create({
+    octokit: inputs.appOctokit,
     owner: inputs.owner,
     repositories: [inputs.repo],
     permissions: {
       issues: "write",
     },
-  };
-  if (inputs.createJwt) {
-    return githubAppToken.create({ ...common, createJwt: inputs.createJwt });
-  }
-  if (inputs.privateKey) {
-    return githubAppToken.create({ ...common, privateKey: inputs.privateKey });
-  }
-  throw new Error("Either privateKey or createJwt must be provided");
+  });
+  core.setSecret(token.token);
+  tokens.push(token);
+  return github.getOctokit(token.token);
 };
