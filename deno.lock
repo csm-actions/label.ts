@@ -1,14 +1,14 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@suzuki-shunsuke/github-app-token@0.2": "0.2.0",
+    "jsr:@suzuki-shunsuke/github-app-token@0.2": "0.2.1",
     "npm:@actions/core@^3.0.1": "3.0.1",
     "npm:@actions/github@^9.1.1": "9.1.1",
     "npm:@octokit/openapi-types@^29.0.1": "29.0.1"
   },
   "jsr": {
-    "@suzuki-shunsuke/github-app-token@0.2.0": {
-      "integrity": "b017a256f88e43425e1465ce0cbd477f70762fe11b43913fa2303d427a9a5b15",
+    "@suzuki-shunsuke/github-app-token@0.2.1": {
+      "integrity": "3b2bebf86f5d22a3725724a351e1d9ab7b9e7a07639a8d81c2e8193ac0054f94",
       "dependencies": [
         "npm:@octokit/openapi-types"
       ]
@@ -139,8 +139,8 @@
     "before-after-hook@4.0.0": {
       "integrity": "sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ=="
     },
-    "content-type@3.0.0": {
-      "integrity": "sha512-AIi5H6p0xk5uknXcN3/rmhP8jgp69OfSe/JuKiQAFprJ7UGw7mwj7m4XcmDzlrnJDG+cGpphAINGdU3g3g7kDw=="
+    "content-type@3.1.0": {
+      "integrity": "sha512-z26wZR7iXahgpSK7XgnB4IbRVmUNSODvsX9qC9TAru7AcWGiqn5YKy+OH3PLRrwyAnewykKhCqnD+VV3a8uT8Q=="
     },
     "json-with-bigint@3.5.12": {
       "integrity": "sha512-uwbF/wSSuOgC7qqlq27Xp5B6a2MHVug3t0idZdTqu0JnlFvgJuH7ju+KAk/J06C7GfhoYy2gnb9wz2INqcne7w=="
