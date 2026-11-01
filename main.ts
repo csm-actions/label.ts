@@ -1,6 +1,8 @@
-import * as github from "@actions/github";
 import * as core from "@actions/core";
-import * as githubAppToken from "@suzuki-shunsuke/github-app-token";
+import * as github from "@actions/github";
+import { createWithGetOctokit, type Inputs } from "./create.ts";
+
+export type { Inputs };
 
 const nowS = (): string => {
   const date = new Date();
@@ -26,71 +28,9 @@ export const newName = (prefix: string): string => {
     ).join("")}`;
 };
 
-export type Inputs = {
-  owner: string;
-  repo: string;
-  name: string;
-  description: string;
-  /** An Octokit client authenticated with an installation access token. */
-  octokit?: ReturnType<typeof github.getOctokit>;
-  /**
-   * An Octokit client authenticated as a GitHub App.
-   *
-   * It's used to create an installation access token, which is revoked once
-   * the label is created.
-   * Build it with @octokit/auth-app, passing either a private key or a
-   * createJwt callback when the key is stored in a KMS or a HSM.
-   */
-  appOctokit?: githubAppToken.Client;
-};
-
-const tokens: githubAppToken.Token[] = [];
-
 export const create = async (inputs: Inputs): Promise<void> => {
-  try {
-    await createLabel(inputs);
-  } finally {
-    for (const token of tokens) {
-      if (githubAppToken.hasExpired(token.expiresAt)) {
-        core.info("skip revoking GitHub App token as it has already expired");
-        continue;
-      }
-      core.info("revoking GitHub App token");
-      await githubAppToken.revoke(token.token, {
-        baseUrl: github.context.apiUrl,
-      });
-    }
-  }
-};
-
-const createLabel = async (inputs: Inputs) => {
-  const octokit = await getOctokit(inputs);
-  await octokit.rest.issues.createLabel({
-    owner: inputs.owner,
-    repo: inputs.repo,
-    name: inputs.name,
-    description: inputs.description,
+  await createWithGetOctokit(inputs, {
+    getOctokit: github.getOctokit,
+    warning: core.warning,
   });
-};
-
-const getOctokit = async (
-  inputs: Inputs,
-): Promise<ReturnType<typeof github.getOctokit>> => {
-  if (inputs.octokit) {
-    return inputs.octokit;
-  }
-  if (!inputs.appOctokit) {
-    throw new Error("Either octokit or appOctokit must be provided");
-  }
-  const token = await githubAppToken.create({
-    octokit: inputs.appOctokit,
-    owner: inputs.owner,
-    repositories: [inputs.repo],
-    permissions: {
-      issues: "write",
-    },
-  });
-  core.setSecret(token.token);
-  tokens.push(token);
-  return github.getOctokit(token.token);
 };
