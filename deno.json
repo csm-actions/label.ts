@@ -1,7 +1,7 @@
 {
   "name": "@csm-actions/label",
   "tasks": {
-    "test": "deno test --allow-env"
+    "test": "deno test --allow-env --allow-read"
   },
   "version": "0.1.0",
   "exports": "./main.ts",
