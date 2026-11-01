@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "exports": "./main.ts",
   "publish": {
-    "include": ["LICENSE", "README.md", "main.ts"]
+    "include": ["LICENSE", "README.md", "main.ts", "create.ts"]
   },
   "imports": {
     "@actions/core": "npm:@actions/core@^3.0.1",
