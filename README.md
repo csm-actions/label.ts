@@ -1,6 +1,5 @@
 # label.ts
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/csm-actions/label.ts)
 [![JSR](https://jsr.io/badges/@csm-actions/label)](https://jsr.io/@csm-actions/label)
 [![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/csm-actions/label.ts/main/LICENSE)
 
