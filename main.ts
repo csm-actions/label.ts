@@ -1,6 +1,8 @@
+import * as core from "@actions/core";
 import * as github from "@actions/github";
-import type * as githubAppToken from "@suzuki-shunsuke/github-app-token";
-import { createWithGetOctokit } from "./create.ts";
+import { createWithGetOctokit, type Inputs } from "./create.ts";
+
+export type { Inputs };
 
 const nowS = (): string => {
   const date = new Date();
@@ -26,24 +28,9 @@ export const newName = (prefix: string): string => {
     ).join("")}`;
 };
 
-export type Inputs = {
-  owner: string;
-  repo: string;
-  name: string;
-  description: string;
-  /** An Octokit client authenticated with an installation access token. */
-  octokit?: ReturnType<typeof github.getOctokit>;
-  /**
-   * An Octokit client authenticated as a GitHub App.
-   *
-   * It's used to create an installation access token, which is revoked once
-   * the label is created.
-   * Build it with @octokit/auth-app, passing either a private key or a
-   * createJwt callback when the key is stored in a KMS or a HSM.
-   */
-  appOctokit?: githubAppToken.Client;
-};
-
 export const create = async (inputs: Inputs): Promise<void> => {
-  await createWithGetOctokit(inputs, github.getOctokit);
+  await createWithGetOctokit(inputs, {
+    getOctokit: github.getOctokit,
+    warning: core.warning,
+  });
 };

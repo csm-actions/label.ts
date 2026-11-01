@@ -1,13 +1,36 @@
+import { inspect } from "node:util";
 import type * as github from "@actions/github";
 import * as core from "@actions/core";
 import * as githubAppToken from "@suzuki-shunsuke/github-app-token";
-import type { Inputs } from "./main.ts";
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 
+export type Inputs = {
+  owner: string;
+  repo: string;
+  name: string;
+  description: string;
+  /** An Octokit client authenticated with an installation access token. */
+  octokit?: ReturnType<typeof github.getOctokit>;
+  /**
+   * An Octokit client authenticated as a GitHub App.
+   *
+   * It's used to create an installation access token, which is revoked once
+   * the label is created.
+   * Build it with @octokit/auth-app, passing either a private key or a
+   * createJwt callback when the key is stored in a KMS or a HSM.
+   */
+  appOctokit?: githubAppToken.Client;
+};
+
+/** Functions to replace in tests */
+export type Deps = {
+  getOctokit: (token: string) => Octokit;
+  warning: (message: string) => void;
+};
+
 /**
- * create with a function to build an Octokit client from a token, which tests
- * replace.
+ * create with functions which tests replace.
  *
  * With appOctokit, the token is created per call and revoked afterwards,
  * through the client built from it, so that it uses the proxy setting and the
@@ -15,7 +38,7 @@ type Octokit = ReturnType<typeof github.getOctokit>;
  */
 export const createWithGetOctokit = async (
   inputs: Inputs,
-  getOctokit: (token: string) => Octokit,
+  deps: Deps,
 ): Promise<void> => {
   if (inputs.octokit) {
     await createLabel(inputs.octokit, inputs);
@@ -33,12 +56,12 @@ export const createWithGetOctokit = async (
     },
   });
   core.setSecret(token.token);
-  const octokit = getOctokit(token.token);
+  const octokit = deps.getOctokit(token.token);
   try {
     await createLabel(octokit, inputs);
   } finally {
     // The request is sent, so the token has done its job either way.
-    await revoke(octokit, token);
+    await revoke(octokit, deps.warning);
   }
 };
 
@@ -51,22 +74,35 @@ export const createWithGetOctokit = async (
  */
 const revoke = async (
   octokit: Octokit,
-  token: githubAppToken.Token,
+  warning: (message: string) => void,
 ): Promise<void> => {
-  if (githubAppToken.hasExpired(token.expiresAt)) {
-    core.info("skip revoking GitHub App token as it has already expired");
-    return;
-  }
   core.info("revoking GitHub App token");
   try {
     await octokit.rest.apps.revokeInstallationAccessToken();
   } catch (error) {
-    core.warning(
-      `failed to revoke GitHub App token: ${
-        error instanceof Error ? error.message : JSON.stringify(error)
-      }`,
-    );
+    warning(`failed to revoke GitHub App token: ${errorMessage(error)}`);
   }
+};
+
+/**
+ * Formats an error without throwing.
+ *
+ * Values which JSON can't serialize, such as circular structures and BigInt,
+ * are formatted by util.inspect.
+ */
+export const errorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  try {
+    const s = JSON.stringify(error);
+    if (s !== undefined) {
+      return s;
+    }
+  } catch {
+    // fall through
+  }
+  return inspect(error);
 };
 
 const createLabel = async (octokit: Octokit, inputs: Inputs) => {

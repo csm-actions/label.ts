@@ -6,7 +6,7 @@ import {
 } from "@std/assert";
 import type * as github from "@actions/github";
 import { create, newName } from "./main.ts";
-import { createWithGetOctokit } from "./create.ts";
+import { createWithGetOctokit, errorMessage } from "./create.ts";
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 
@@ -90,14 +90,20 @@ const newAppOctokit = () => {
 };
 
 // A fake getOctokit which records the labels created and the tokens revoked.
-const newGetOctokit = (opts: { failToRevoke?: boolean } = {}) => {
+const newGetOctokit = (
+  opts: { failToRevoke?: boolean; failToCreate?: boolean } = {},
+) => {
   const labels: string[] = [];
   const revoked: string[] = [];
+  const warnings: string[] = [];
   const getOctokit = (token: string) =>
     ({
       rest: {
         issues: {
           createLabel: (params: { name: string }) => {
+            if (opts.failToCreate) {
+              return Promise.reject(new Error("already exists"));
+            }
             labels.push(`${token}:${params.name}`);
             return Promise.resolve({});
           },
@@ -113,7 +119,13 @@ const newGetOctokit = (opts: { failToRevoke?: boolean } = {}) => {
         },
       },
     }) as unknown as Octokit;
-  return { getOctokit, labels, revoked };
+  const deps = {
+    getOctokit,
+    warning: (message: string) => {
+      warnings.push(message);
+    },
+  };
+  return { deps, labels, revoked, warnings };
 };
 
 const labelInputs = (name: string) => ({
@@ -126,28 +138,64 @@ const labelInputs = (name: string) => ({
 Deno.test("createWithGetOctokit with appOctokit", async (t) => {
   await t.step("revokes only its own token per call", async () => {
     const appOctokit = newAppOctokit();
-    const { getOctokit, labels, revoked } = newGetOctokit();
-    await createWithGetOctokit({ ...labelInputs("a"), appOctokit }, getOctokit);
-    await createWithGetOctokit({ ...labelInputs("b"), appOctokit }, getOctokit);
+    const { deps, labels, revoked } = newGetOctokit();
+    await createWithGetOctokit({ ...labelInputs("a"), appOctokit }, deps);
+    await createWithGetOctokit({ ...labelInputs("b"), appOctokit }, deps);
     assertEquals(labels, ["token-1:a", "token-2:b"]);
     assertEquals(revoked, ["token-1", "token-2"]);
   });
   await t.step("revokes tokens of concurrent calls once each", async () => {
     const appOctokit = newAppOctokit();
-    const { getOctokit, revoked } = newGetOctokit();
+    const { deps, revoked } = newGetOctokit();
     await Promise.all(
       ["a", "b", "c"].map((name) =>
-        createWithGetOctokit({ ...labelInputs(name), appOctokit }, getOctokit)
+        createWithGetOctokit({ ...labelInputs(name), appOctokit }, deps)
       ),
     );
     assertEquals(revoked.toSorted(), ["token-1", "token-2", "token-3"]);
   });
-  await t.step("doesn't fail if revoking fails", async () => {
-    const { getOctokit, labels } = newGetOctokit({ failToRevoke: true });
+  await t.step("revokes the token even if creating a label fails", async () => {
+    const { deps, revoked } = newGetOctokit({ failToCreate: true });
+    await assertRejects(
+      () =>
+        createWithGetOctokit(
+          { ...labelInputs("a"), appOctokit: newAppOctokit() },
+          deps,
+        ),
+      Error,
+      "already exists",
+    );
+    assertEquals(revoked, ["token-1"]);
+  });
+  await t.step("doesn't fail but warns if revoking fails", async () => {
+    const { deps, labels, warnings } = newGetOctokit({ failToRevoke: true });
     await createWithGetOctokit(
       { ...labelInputs("a"), appOctokit: newAppOctokit() },
-      getOctokit,
+      deps,
     );
     assertEquals(labels, ["token-1:a"]);
+    assertEquals(warnings, [
+      "failed to revoke GitHub App token: network error",
+    ]);
+  });
+});
+
+Deno.test("errorMessage", async (t) => {
+  await t.step("Error", () => {
+    assertEquals(errorMessage(new Error("network error")), "network error");
+  });
+  await t.step("JSON", () => {
+    assertEquals(errorMessage({ status: 500 }), '{"status":500}');
+    assertEquals(errorMessage("network error"), '"network error"');
+  });
+  await t.step("values JSON can't serialize", () => {
+    const circular: Record<string, unknown> = { status: 500 };
+    circular.self = circular;
+    assertEquals(
+      errorMessage(circular),
+      "<ref *1> { status: 500, self: [Circular *1] }",
+    );
+    assertEquals(errorMessage({ n: 1n }), "{ n: 1n }");
+    assertEquals(errorMessage(undefined), "undefined");
   });
 });
